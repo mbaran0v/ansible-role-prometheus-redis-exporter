@@ -1,0 +1,18 @@
+[Unit]
+Description=Prometheus Redis Exporter
+Documentation=https://github.com/oliver006/redis_exporter
+After=network.target
+
+[Service]
+Type=simple
+User={{ redis_exporter_system_user }}
+Group={{ redis_exporter_system_group }}
+EnvironmentFile={{ redis_exporter_shared_dir }}/config
+ExecStart={{ redis_exporter_release_dir }}/redis_exporter \
+    --web.listen-address={{ redis_exporter_web_listen_address }}
+
+SyslogIdentifier=redis_exporter
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

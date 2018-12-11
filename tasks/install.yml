@@ -1,0 +1,77 @@
+---
+
+- name: Create the redis_exporter group
+  group:
+    name: "{{ redis_exporter_system_group }}"
+    state: present
+    system: true
+
+- name: Create the redis_exporter user
+  user:
+    name: "{{ redis_exporter_system_user }}"
+    groups: "{{ redis_exporter_system_group }}"
+    append: true
+    shell: /usr/sbin/nologin
+    system: true
+    createhome: false
+    home: "{{ redis_exporter_root_dir }}"
+
+- name: create redis_exporter directories
+  file:
+    path: "{{ redis_exporter_root_dir }}"
+    state: directory
+    owner: "{{ redis_exporter_system_user }}"
+    group: "{{ redis_exporter_system_group }}"
+    mode: 0750
+
+- name: initialize the deploy root and gather facts
+  deploy_helper:
+    path: "{{ redis_exporter_root_dir }}"
+    release: "{{ redis_exporter_version }}"
+    state: present
+
+- name: create release directory
+  file:
+    dest: "{{ deploy_helper.new_release_path }}"
+    state: directory
+    owner: "{{ redis_exporter_system_user }}"
+    group: "{{ redis_exporter_system_group }}"
+    mode: 0750
+
+- name: download binaries
+  unarchive:
+    src: "{{ redis_exporter_download_url }}"
+    dest: "{{ deploy_helper.new_release_path }}"
+    remote_src: yes
+    creates: "{{ deploy_helper.new_release_path }}/redis_exporter"
+    owner: "{{ redis_exporter_system_user }}"
+    group: "{{ redis_exporter_system_group }}"
+    mode: 0755
+
+- name: create config
+  template:
+    src: config.j2
+    dest: "{{ deploy_helper.shared_path }}/config"
+    owner: root
+    group: "{{ redis_exporter_system_group }}"
+    mode: 0750
+  notify:
+    - restart redis_exporter
+
+- name: create systemd service unit
+  template:
+    src: redis_exporter.service.j2
+    dest: /etc/systemd/system/redis_exporter.service
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart redis_exporter
+
+- name: finalize the deploy, removing the unfinished file and switching the symlink
+  deploy_helper:
+    path: "{{ redis_exporter_root_dir }}"
+    release: "{{ deploy_helper.new_release }}"
+    state: finalize
+  notify:
+    - restart redis_exporter
