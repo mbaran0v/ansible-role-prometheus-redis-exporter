@@ -9,7 +9,7 @@
 - name: Create the redis_exporter user
   user:
     name: "{{ redis_exporter_user }}"
-    groups: "{{ redis_exporter_group }}"
+    group: "{{ redis_exporter_group }}"
     shell: /usr/sbin/nologin
     system: true
     createhome: false

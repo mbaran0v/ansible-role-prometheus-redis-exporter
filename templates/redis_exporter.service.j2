@@ -5,8 +5,8 @@ After=network.target
 
 [Service]
 Type=simple
-User={{ redis_exporter_system_user }}
-Group={{ redis_exporter_system_group }}
+User={{ redis_exporter_user }}
+Group={{ redis_exporter_group }}
 EnvironmentFile={{ redis_exporter_release_dir }}/config
 ExecStart={{ redis_exporter_release_dir }}/redis_exporter \
     --web.listen-address={{ redis_exporter_web_listen_address }}
