@@ -7,7 +7,7 @@ After=network.target
 Type=simple
 User={{ redis_exporter_system_user }}
 Group={{ redis_exporter_system_group }}
-EnvironmentFile={{ redis_exporter_shared_dir }}/config
+EnvironmentFile={{ redis_exporter_release_dir }}/config
 ExecStart={{ redis_exporter_release_dir }}/redis_exporter \
     --web.listen-address={{ redis_exporter_web_listen_address }}
 

@@ -2,15 +2,14 @@
 
 - name: Create the redis_exporter group
   group:
-    name: "{{ redis_exporter_system_group }}"
+    name: "{{ redis_exporter_group }}"
     state: present
     system: true
 
 - name: Create the redis_exporter user
   user:
-    name: "{{ redis_exporter_system_user }}"
-    groups: "{{ redis_exporter_system_group }}"
-    append: true
+    name: "{{ redis_exporter_user }}"
+    groups: "{{ redis_exporter_group }}"
     shell: /usr/sbin/nologin
     system: true
     createhome: false
@@ -20,9 +19,14 @@
   file:
     path: "{{ redis_exporter_root_dir }}"
     state: directory
-    owner: "{{ redis_exporter_system_user }}"
-    group: "{{ redis_exporter_system_group }}"
+    owner: "{{ redis_exporter_user }}"
+    group: "{{ redis_exporter_group }}"
     mode: 0750
+
+- name: check if installed
+  stat:
+    path: "{{ redis_exporter_root_dir }}/releases/{{ redis_exporter_version }}/redis_exporter"
+  register: redis_exporter_bin
 
 - name: initialize the deploy root and gather facts
   deploy_helper:
@@ -34,29 +38,54 @@
   file:
     dest: "{{ deploy_helper.new_release_path }}"
     state: directory
-    owner: "{{ redis_exporter_system_user }}"
-    group: "{{ redis_exporter_system_group }}"
+    owner: "{{ redis_exporter_user }}"
+    group: "{{ redis_exporter_group }}"
     mode: 0750
-
-- name: download binaries
-  unarchive:
-    src: "{{ redis_exporter_download_url }}"
-    dest: "{{ deploy_helper.new_release_path }}"
-    remote_src: yes
-    creates: "{{ deploy_helper.new_release_path }}/redis_exporter"
-    owner: "{{ redis_exporter_system_user }}"
-    group: "{{ redis_exporter_system_group }}"
-    mode: 0755
 
 - name: create config
   template:
     src: config.j2
-    dest: "{{ deploy_helper.shared_path }}/config"
-    owner: root
-    group: "{{ redis_exporter_system_group }}"
-    mode: 0750
+    dest: "{{ deploy_helper.new_release_path }}/config"
+    owner: "{{ redis_exporter_user }}"
+    group: "{{ redis_exporter_group }}"
+    mode: 0600
   notify:
     - restart redis_exporter
+
+- block:
+
+    - name: create temporary deploy dir
+      file:
+        path: "{{ redis_exporter_root_dir }}/tmp"
+        state: directory
+
+    - name: download archive to temporary folder
+      get_url:
+        url: "{{ redis_exporter_download_url }}"
+        dest: "{{ redis_exporter_root_dir }}/tmp/{{ redis_exporter_archive_name }}"
+        remote_src: true
+      register: _download_archive
+      until: _download_archive is succeeded
+      retries: 5
+      delay: 2
+
+    - name: unpack binaries
+      unarchive:
+        src: "{{ redis_exporter_root_dir }}/tmp/{{ redis_exporter_archive_name }}"
+        dest: "{{ redis_exporter_root_dir }}/tmp"
+        remote_src: yes
+        creates: "{{ redis_exporter_root_dir }}/tmp/{{ redis_exporter_extracted_dir }}/redis_exporter"
+        owner: "{{ redis_exporter_user }}"
+        group: "{{ redis_exporter_group }}"
+        mode: 0755
+
+    - name: propagate binaries
+      command: mv {{ redis_exporter_root_dir }}/tmp/{{ redis_exporter_extracted_dir }}/{{ item }} {{ deploy_helper.new_release_path }}
+      tags: skip_ansible_lint
+      with_items:
+        - redis_exporter
+
+  when: not redis_exporter_bin.stat.exists or redis_exporter_force_install|bool
 
 - name: create systemd service unit
   template:
