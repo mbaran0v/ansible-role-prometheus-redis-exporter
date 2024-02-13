@@ -60,7 +60,7 @@
         state: directory
 
     - name: download archive to temporary folder
-      get_url:
+      uri:
         url: "{{ redis_exporter_download_url }}"
         dest: "{{ redis_exporter_root_dir }}/tmp/{{ redis_exporter_archive_name }}"
         remote_src: true
